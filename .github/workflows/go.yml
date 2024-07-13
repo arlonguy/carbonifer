@@ -17,19 +17,19 @@ jobs:
       id-token: write
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     # Configure Workload Identity Federation via a credentials file.
     - id: 'auth'
       name: 'Authenticate to Google Cloud'
-      uses: 'google-github-actions/auth@v1'
+      uses: 'google-github-actions/auth@v2'
       with:
         workload_identity_provider: 'projects/536185737408/locations/global/workloadIdentityPools/carbonifer-gh-pool/providers/carbonifer-oidc-provider'
         service_account: 'github@carbonifer-sandbox.iam.gserviceaccount.com'
       if: github.event_name != 'pull_request'
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: '1.22'
 
@@ -47,7 +47,7 @@ jobs:
       run: go vet ./...
     
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@v6
 
     - name: Test with credentials
       env:
