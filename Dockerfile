@@ -1,4 +1,4 @@
-FROM golang:1.20
+FROM golang:1.22
 WORKDIR /go/src/app
 COPY . .
 RUN go mod download
