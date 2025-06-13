@@ -8,10 +8,12 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/carboniferio/carbonifer/internal/data" // <-- add this import
 	"github.com/carboniferio/carbonifer/internal/estimate"
 	"github.com/carboniferio/carbonifer/internal/output"
 	"github.com/carboniferio/carbonifer/internal/plan"
 	"github.com/carboniferio/carbonifer/internal/terraform"
+	"github.com/shopspring/decimal" // <-- add this import
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -65,8 +67,27 @@ Example usages:
 			log.Panic(errW)
 		}
 
-		// Estimate CO2 emissions
-		estimations := estimate.EstimateResources(resources)
+		// New code for forecast file
+		forecastFile := viper.GetString("carbon_intensity_file")
+		var forecastCarbonIntensity *decimal.Decimal
+		var forecastRegion string
+
+		if forecastFile != "" {
+			value, region, err := data.ReadForecastCarbonIntensity(forecastFile)
+			if err != nil {
+				log.Warnf("Error loading forecast carbon intensity, falling back to default: %v", err)
+			} else {
+				d := decimal.NewFromFloat(value)
+				forecastCarbonIntensity = &d
+				forecastRegion = region
+				log.Infof("Using forecast carbon intensity from %s (region: %s): %.6f gCO2eq/Wh", forecastFile, forecastRegion, value)
+			}
+		} else {
+			log.Info("No forecast carbon intensity file provided — using static carbon intensities only")
+		}
+
+		// Estimate CO2 emissions with forecast params
+		estimations := estimate.EstimateResources(resources, forecastCarbonIntensity, forecastRegion)
 
 		// Generate report
 		reportText := ""
@@ -93,7 +114,10 @@ Example usages:
 			if err != nil {
 				log.Fatal(err)
 			}
-			outWriter.Flush()
+			err = outWriter.Flush()
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	},
 }
@@ -101,13 +125,7 @@ Example usages:
 func init() {
 	RootCmd.AddCommand(planCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// planCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// planCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Add CLI flag for forecast carbon intensity file
+	planCmd.Flags().String("carbon-intensity-file", "", "Path to JSON file with forecast carbon intensity data")
+	viper.BindPFlag("carbon_intensity_file", planCmd.Flags().Lookup("carbon-intensity-file"))
 }
