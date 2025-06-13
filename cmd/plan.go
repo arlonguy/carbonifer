@@ -90,11 +90,12 @@ Example usages:
 		estimations := estimate.EstimateResources(resources, forecastCarbonIntensity, forecastRegion)
 
 		// Generate report
+		// Generate report
 		reportText := ""
 		if viper.Get("out.format") == "json" {
 			reportText = output.GenerateReportJSON(estimations)
 		} else {
-			reportText = output.GenerateReportText(estimations)
+			reportText = output.GenerateReportText(estimations, forecastCarbonIntensity != nil)
 		}
 
 		// Print out report
