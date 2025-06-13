@@ -13,23 +13,32 @@ import (
 )
 
 // EstimateSupportedResource gets the carbon emissions of a GCP resource
-func EstimateSupportedResource(resource resources.Resource) *estimation.EstimationResource {
+func EstimateSupportedResource(resource resources.Resource, forecastCarbonIntensity *decimal.Decimal, forecastRegion string) *estimation.EstimationResource {
 
 	var computeResource resources.ComputeResource = resource.(resources.ComputeResource)
+
 	// Electric power used per unit of time
-	// It's computed first in watt per hour
 	avgWattHour := estimateWattHour(&computeResource) // Watt hour
 	avgKWattHour := avgWattHour.Div(decimal.NewFromInt(1000))
 
 	// Regional grid emission per unit of time
-	// regionEmissions are in gCO2/kWh
-	regionEmissions, err := coefficients.RegionEmission(resource.GetIdentification().Provider, resource.GetIdentification().Region) // gCO2eq /kWh
-	if err != nil {
-		log.Fatalf("Error while getting region emissions for %v: %v", resource.GetAddress(), err)
+	// Option 2 logic here:
+	var carbonIntensity decimal.Decimal
+
+	if forecastCarbonIntensity != nil && resource.GetIdentification().Region == forecastRegion {
+		carbonIntensity = *forecastCarbonIntensity
+		log.Infof("Applying forecast carbon intensity %.6f gCO2eq/Wh for resource %s in region %s", carbonIntensity, resource.GetIdentification().Name, resource.GetIdentification().Region)
+	} else {
+		regionEmissions, err := coefficients.RegionEmission(resource.GetIdentification().Provider, resource.GetIdentification().Region) // gCO2eq /kWh
+		if err != nil {
+			log.Fatalf("Error while getting region emissions for %v: %v", resource.GetAddress(), err)
+		}
+		carbonIntensity = regionEmissions.GridCarbonIntensity
+		log.Infof("Using static carbon intensity %.6f gCO2eq/Wh for resource %s in region %s", carbonIntensity, resource.GetIdentification().Name, resource.GetIdentification().Region)
 	}
 
 	// Carbon Emissions
-	carbonEmissionInGCO2PerH := avgKWattHour.Mul(regionEmissions.GridCarbonIntensity)
+	carbonEmissionInGCO2PerH := avgKWattHour.Mul(carbonIntensity)
 	carbonEmissionPerTime := carbonEmissionInGCO2PerH
 	if strings.ToLower(viper.GetString("unit.time")) == "d" {
 		carbonEmissionPerTime = carbonEmissionPerTime.Mul(decimal.NewFromInt(24))
@@ -49,11 +58,11 @@ func EstimateSupportedResource(resource resources.Resource) *estimation.Estimati
 		"estimating resource %v.%v (%v): %v %v%v * %v %vCO2/%v%v = %v %vCO2/%v%v * %v = %v %vCO2/%v%v * %v",
 		computeResource.Identification.ResourceType,
 		computeResource.Identification.Name,
-		regionEmissions.Region,
+		resource.GetIdentification().Region,
 		avgKWattHour.String(),
 		"kW",
 		"h",
-		regionEmissions.GridCarbonIntensity,
+		carbonIntensity,
 		"g",
 		"kW",
 		"h",
