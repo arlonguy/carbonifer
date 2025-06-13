@@ -16,7 +16,7 @@ import (
 )
 
 // EstimateResources estimates the power and carbon emissions of a list of resources
-func EstimateResources(resourceList map[string]resources.Resource) estimation.EstimationReport {
+func EstimateResources(resourceList map[string]resources.Resource, forecastCarbonIntensity *decimal.Decimal, forecastRegion string) estimation.EstimationReport {
 
 	var estimationResources []estimation.EstimationResource
 	var unsupportedResources []resources.Resource
@@ -25,8 +25,9 @@ func EstimateResources(resourceList map[string]resources.Resource) estimation.Es
 		CarbonEmissions: decimal.Zero,
 		ResourcesCount:  decimal.Zero,
 	}
+
 	for _, resource := range resourceList {
-		estimationResource, uerr := EstimateResource(resource)
+		estimationResource, uerr := EstimateResource(resource, forecastCarbonIntensity, forecastRegion)
 		if uerr != nil {
 			logrus.Warnf("Skipping unsupported provider %v: %v.%v", uerr.Provider, resource.GetIdentification().ResourceType, resource.GetIdentification().Name)
 		}
@@ -42,11 +43,16 @@ func EstimateResources(resourceList map[string]resources.Resource) estimation.Es
 		estimationTotal.ResourcesCount = estimationTotal.ResourcesCount.Add(estimationResource.TotalCount)
 	}
 
+	unitTime := viper.GetString("unit.time")
+	if unitTime == "" {
+		unitTime = "h" // Fallback to "h"
+	}
+
 	return estimation.EstimationReport{
 		Info: estimation.EstimationInfo{
 			UnitTime:                viper.Get("unit.time").(string),
 			UnitWattTime:            fmt.Sprintf("%s%s", "W", viper.Get("unit.time")),
-			UnitCarbonEmissionsTime: fmt.Sprintf("%sCO2eq/%s", viper.Get("unit.carbon"), viper.Get("unit.time")),
+			UnitCarbonEmissionsTime: fmt.Sprintf("%sCO2eq/%s", viper.Get("unit.time")),
 			DateTime:                time.Now(),
 			InfoByProvider: map[providers.Provider]estimation.InfoByProvider{
 				providers.GCP: {
@@ -63,7 +69,6 @@ func EstimateResources(resourceList map[string]resources.Resource) estimation.Es
 		UnsupportedResources: unsupportedResources,
 		Total:                estimationTotal,
 	}
-
 }
 
 // SortEstimations sorts a list of estimation resources by resource address
@@ -74,15 +79,15 @@ func SortEstimations(resources *[]estimation.EstimationResource) {
 }
 
 // EstimateResource estimates the power and carbon emissions of a resource
-func EstimateResource(resource resources.Resource) (*estimation.EstimationResource, *providers.UnsupportedProviderError) {
+func EstimateResource(resource resources.Resource, forecastCarbonIntensity *decimal.Decimal, forecastRegion string) (*estimation.EstimationResource, *providers.UnsupportedProviderError) {
 	if !resource.IsSupported() {
 		return estimateNotSupported(resource.(resources.UnsupportedResource)), nil
 	}
 	switch resource.GetIdentification().Provider {
 	case providers.AWS:
-		return estimate.EstimateSupportedResource(resource), nil
+		return estimate.EstimateSupportedResource(resource, forecastCarbonIntensity, forecastRegion), nil
 	case providers.GCP:
-		return estimate.EstimateSupportedResource(resource), nil
+		return estimate.EstimateSupportedResource(resource, forecastCarbonIntensity, forecastRegion), nil
 	default:
 		return nil, &providers.UnsupportedProviderError{Provider: resource.GetIdentification().Provider.String()}
 	}
