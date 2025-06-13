@@ -11,10 +11,14 @@ import (
 )
 
 // GenerateReportText generates a text report from an estimation report
-func GenerateReportText(report estimation.EstimationReport) string {
+func GenerateReportText(report estimation.EstimationReport, isForecast bool) string {
 	log.Debug("Generating text report")
 	tableString := &strings.Builder{}
-	tableString.WriteString("\n  Average estimation of CO2 emissions per instance: \n\n")
+	if isForecast {
+		tableString.WriteString("\n  Average prediction of CO2 emissions per instance: \n\n")
+	} else {
+		tableString.WriteString("\n  Average estimation of CO2 emissions per instance: \n\n")
+	}
 
 	table := tablewriter.NewWriter(tableString)
 	table.SetHeader([]string{"resource", "count", "replicas", "emissions per instance"})
