@@ -15,7 +15,7 @@ func GenerateReportText(report estimation.EstimationReport, isForecast bool) str
 	log.Debug("Generating text report")
 	tableString := &strings.Builder{}
 	if isForecast {
-		tableString.WriteString("\n  Average prediction of CO2 emissions per instance: \n\n")
+		tableString.WriteString("\n  Average forecast of CO2 emissions per instance: \n\n")
 	} else {
 		tableString.WriteString("\n  Average estimation of CO2 emissions per instance: \n\n")
 	}
