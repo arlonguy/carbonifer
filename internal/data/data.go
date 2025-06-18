@@ -79,11 +79,9 @@ func ReadForecastCarbonIntensity(filename string) (float64, string, error) {
 	}
 
 	// loops over entries, sums value
-	// divide by 1000 because WattTime provides gCO2eq/kWh while Carbonifer expects gCO2eq/Wh
 	var sum float64
 	for _, entry := range forecast.Data {
-		// Convert gCO2eq/kWh -> gCO2eq/Wh
-		sum += entry.Value / 1000.0
+		sum += entry.Value
 	}
 
 	// logs helpful messages and returns the average as float64
