@@ -88,7 +88,7 @@ docker run -it --rm -v <your_tf_folder_with_config>:/tmp/ carbonifer ./carbonife
 
 ### Manual install
 
-Download the latest release from [releases page](https://github.com/carboniferio/carbonifer/releases/)
+Download the latest release from [releases page](https://github.com/arlonguy/carbonifer/releases)
 
 ## Plan
 
